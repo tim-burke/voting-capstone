@@ -1,5 +1,4 @@
 # This file downloads specific data from the US census, then writes it to .tsv
-
 import pandas as pd 
 import click
 from census import Census
