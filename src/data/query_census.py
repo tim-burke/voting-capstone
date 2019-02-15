@@ -34,23 +34,35 @@ def census_dataframe(census, col_dict, fips='37'):
             df = df.merge(q, how='inner', on='NAME')
     return df
 
+def clean_NC_census(df):
+    '''Cleans all issues found in NC census download'''
+    df = df.replace(-666666666.0, 0.0) # set missing code to 0
+    return df
+
+def main(df, state, output_dir):
+    '''apply the relevant cleaning function and output the data to .tsv'''
+    if state == 'NC':
+        df = clean_NC_census(df)
+    df.to_csv(output_dir + 'census_{}.tsv'.format(state), sep='\t', index=False)
+
+
 if __name__ == '__main__':
 
     # Some values need to be hard-coded
     api_key = 'bf07f59168c73d5c7d1d32171dfa455345f8c7c0'
     fips_codes = {'NC': '37', 'FL': '12', 'OH': '39'}
-    columns = {'population': 'B02001_001E',
-               'white_population': 'B02001_002E',
-               'travel_time': 'B08303_001E',
-               'hh_inc': 'B19001_001E',
-               'med_hh_inc': 'B19013_001E',
-               'agg_hh_inc': 'B19025_001E'}
+    columns = {'population': 'B01003_001E',
+           'white_population': 'B02001_002E',
+           'travel_time': 'B08303_001E',
+           'hh_inc': 'B19001_001E',
+           'med_hh_inc': 'B19013_001E',
+           'agg_cars': 'B25046_001E'}
 
 
     c = Census(api_key)
 
     output_directory = click.prompt('Output directory to write processed data',
-                                    default='../../data/raw/',
+                                    default='../../data/processed/',
                                     show_default=True,
                                     type=click.Path(exists=True))
 
@@ -61,7 +73,9 @@ if __name__ == '__main__':
 
 
     df = census_dataframe(c,col_dict=columns, fips=fips_codes[state])
-    df.to_csv(output_directory + 'census_{}.tsv'.format(state), sep='\t')
+
+    main(df, state, output_directory)
+    # df.to_csv(output_directory + 'census_{}.tsv'.format(state), sep='\t')
     
 
     
