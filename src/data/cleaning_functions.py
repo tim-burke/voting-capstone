@@ -5,11 +5,24 @@ import dask.dataframe as dd
 import re
 
 def get_election_year(election_desc):
-    '''Helper function for clean_NC_16'''
+    '''
+    Apply to election_desc column
+    Helper function for clean_NC_16
+    '''
     if election_desc == '11/08/2016 GENERAL':
         return 2016
     elif election_desc == '11/06/2012 GENERAL':
         return 2012
+    else:
+        return np.nan
+
+def is_active(voter_status_desc):
+    '''
+    Apply to voter_status_desc column
+    Helper function to clean_NC_12
+    '''
+    if voter_status_desc == 'ACTIVE':
+        return 1.0
     else:
         return np.nan
 
@@ -44,7 +57,11 @@ def clean_NC_12(input_directory):
                     'precinct_desc': object,
                      'zip_code': object,
                       'voter_reg_num': object})
-    data = data[data['precinct_desc'].notnull()].compute()
+    # Filter out bad rows
+    # data = data[data['precinct_desc'].notnull()].compute()
+    data = data.dropna(subset=['precinct_desc'])
+    data['active'] = data['voter_status_desc'].apply(is_active, meta=('active', np.float64))
+    data = data.dropna(subset=['active'])
 
     # Create address column
     data['address'] = data.apply(fix_address, axis=1, meta=('address', object))
@@ -58,7 +75,7 @@ def clean_NC_12(input_directory):
              'precinct_abbrv': 'precinct_abbrv_12', 'precinct_desc': 'precinct_desc_12'}
     data = data[new_cols]
     data = data.rename(columns=new_names)
-    data = dd.from_pandas(data, npartitions=50) # Deals with odd Dask behavior
+    # data = dd.from_pandas(data, npartitions=50) # Deals with odd Dask behavior
     return data
 
 def clean_NC_16(input_directory):
@@ -96,14 +113,18 @@ def clean_NC_16(input_directory):
 
     # Filter voter data to relevant elections, active voters only
     vh['election_year'] = vh['election_desc'].apply(get_election_year, meta=('election_year', np.float64))
-    vh = vh[vh['election_year'].notnull()].compute()
-    vt = vt.loc[vt['voter_status_desc'] == 'ACTIVE'].compute()
+    vh = vh.dropna(subset=['election_year'])
+    vt['active'] = vt['voter_status_desc'].apply(is_active, meta=('active', np.float64))
+    vt = vt.dropna(subset=['active'])
+    # vh = vh[vh['election_year'].notnull()].compute() # Why does this convert to pd Dataframe? 
+    # vt = vt.loc[vt['voter_status_desc'] == 'ACTIVE'].compute()
+
 
     # Merge data and return
     vh = vh.set_index('voter_reg_num')
     vt = vt.set_index('voter_reg_num')
-    data = vt.merge(vh, how='left', left_index=True, right_index=True) # Why does this convert to pd Dataframe? 
-    data = dd.from_pandas(data, npartitions=50) # Deals with odd Dask behavior
+    data = vt.merge(vh, how='left', left_index=True, right_index=True) 
+    # data = dd.from_pandas(data, npartitions=50) # Deals with odd Dask behavior
     print('Finished merging NC 2016 data')
     return data
 
