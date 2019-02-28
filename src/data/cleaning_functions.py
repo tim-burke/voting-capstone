@@ -18,7 +18,7 @@ def get_election_year(election_desc):
 
 def is_active(voter_status_desc):
     '''
-    Apply to voter_status_desc column
+    Apply to voter_status_desc column, returns nan for inactive
     Helper function to clean_NC_12
     '''
     if voter_status_desc == 'ACTIVE':
@@ -44,7 +44,7 @@ def clean_NC_12(input_directory):
     Cleans the 2012 NC voter data using dask, returning a dask dataframe
     '''
     file = input_directory + 'NC_2012.tsv'
-    cols_2012 = ['voter_reg_num', 'voter_status_desc', 'house_num','street_dir', 
+    cols_2012 = ['ncid', 'voter_status_desc', 'house_num','street_dir', 
             'street_name', 'street_type_cd', 'res_city_desc', 'state_cd', 'zip_code', 
             'precinct_abbrv', 'precinct_desc']
 
@@ -56,9 +56,9 @@ def clean_NC_12(input_directory):
                    dtype={'precinct_abbrv': object,
                     'precinct_desc': object,
                      'zip_code': object,
-                      'voter_reg_num': object})
+                      'ncid': object})
+    
     # Filter out bad rows
-    # data = data[data['precinct_desc'].notnull()].compute()
     data = data.dropna(subset=['precinct_desc'])
     data['active'] = data['voter_status_desc'].apply(is_active, meta=('active', np.float64))
     data = data.dropna(subset=['active'])
@@ -67,7 +67,7 @@ def clean_NC_12(input_directory):
     data['address'] = data.apply(fix_address, axis=1, meta=('address', object))
 
     # Return relevant columns
-    new_cols = ['voter_reg_num', 'voter_status_desc', 'house_num', 'address',
+    new_cols = ['ncid', 'voter_status_desc', 'house_num', 'address',
             'res_city_desc', 'state_cd', 'zip_code',
             'precinct_abbrv', 'precinct_desc']
     new_names = {'voter_status_desc': 'voter_status_12', 'address': 'address_12', 'voter_status_desc': 'voter_status_12',
@@ -75,7 +75,6 @@ def clean_NC_12(input_directory):
              'precinct_abbrv': 'precinct_abbrv_12', 'precinct_desc': 'precinct_desc_12'}
     data = data[new_cols]
     data = data.rename(columns=new_names)
-    # data = dd.from_pandas(data, npartitions=50) # Deals with odd Dask behavior
     return data
 
 def clean_NC_16(input_directory):
@@ -86,9 +85,9 @@ def clean_NC_16(input_directory):
     '''
     
     # Columns of interest for NC
-    vot_cols = ['voter_reg_num', 'voter_status_desc', 'res_street_address', 
+    vot_cols = ['ncid', 'voter_status_desc', 'res_street_address', 
     'res_city_desc', 'state_cd', 'zip_code', 'race_code', 'precinct_abbrv', 'precinct_desc']
-    vhist_cols = ['voter_reg_num', 'voting_method', 'pct_description', 'pct_label', 'vtd_label', 'election_desc']
+    vhist_cols = ['ncid', 'voting_method', 'pct_description', 'pct_label', 'vtd_label', 'election_desc']
 
     # Registered voter DataFrame
     vt_file = input_directory + 'ncvoter_Statewide.txt'
@@ -98,7 +97,9 @@ def clean_NC_16(input_directory):
                      encoding="ISO-8859-1",
                      usecols=vot_cols, 
                      dtype={'precinct_abbrv': object,
-                      'precinct_desc': object, 'voter_reg_num': object, 'zip_code': object})    
+                      'precinct_desc': object,
+                      'ncid': object,
+                      'zip_code': object})    
     print('read in NC voter data')
 
     # Voter history dataframe
@@ -108,7 +109,7 @@ def clean_NC_16(input_directory):
                  blocksize='150MB',
                  encoding="ISO-8859-1",
                  usecols=vhist_cols, 
-                 dtype={'voter_reg_num': object})
+                 dtype={'ncid': object})
     print('read in NC voter history')
 
     # Filter voter data to relevant elections, active voters only
@@ -116,15 +117,11 @@ def clean_NC_16(input_directory):
     vh = vh.dropna(subset=['election_year'])
     vt['active'] = vt['voter_status_desc'].apply(is_active, meta=('active', np.float64))
     vt = vt.dropna(subset=['active'])
-    # vh = vh[vh['election_year'].notnull()].compute() # Why does this convert to pd Dataframe? 
-    # vt = vt.loc[vt['voter_status_desc'] == 'ACTIVE'].compute()
-
 
     # Merge data and return
-    vh = vh.set_index('voter_reg_num')
-    vt = vt.set_index('voter_reg_num')
+    vh = vh.set_index('ncid')
+    vt = vt.set_index('ncid')
     data = vt.merge(vh, how='left', left_index=True, right_index=True) 
-    # data = dd.from_pandas(data, npartitions=50) # Deals with odd Dask behavior
     print('Finished merging NC 2016 data')
     return data
 
