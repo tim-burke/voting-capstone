@@ -39,6 +39,66 @@ def fix_address(row):
     address = re.sub('\s+', ' ', unstripped_address).strip()
     return address
 
+def clean_NC_voters_16(input_directory):
+    '''
+    Cleans the NC voter files ('ncvoter_Statewide.txt'), filtering to active voters.
+    Returns a Dask DataFrame of the data
+    '''
+    file = input_directory + 'ncvoter_Statewide.txt'
+    vot_cols = ['ncid', 'voter_status_desc', 'res_street_address', 
+    'res_city_desc', 'state_cd', 'zip_code', 'race_code', 'precinct_abbrv', 'precinct_desc']    
+
+    ddf = dd.read_csv(file,
+                      sep='\t',
+                      blocksize='150MB',
+                      encoding="ISO-8859-1",
+                      usecols=vot_cols, 
+                      dtype={'precinct_abbrv': object,
+                      'precinct_desc': object,
+                      'ncid': object,
+                      'zip_code': object})    
+    print('Read in NC voter data')
+
+    # Select rows with active voters only
+    ddf['active'] = ddf['voter_status_desc'].apply(is_active, meta=('active', np.float64))
+    ddf = ddf.dropna(subset=['active'])
+    print('Cleaned NC Voter Data')
+    return ddf
+
+def clean_NC_vhist_16(input_directory):
+    '''
+    Cleans the NC voter history files ('ncvoter_Statewide.txt'),
+    creating an election year column and filtering to 2012 and 2016 general elections.
+    Returns a Dask DataFrame of the data
+    '''    
+    file = input_directory + 'ncvhis_Statewide.txt'
+    vhist_cols = ['ncid', 'voting_method', 'pct_description', 'pct_label', 'vtd_label', 'election_desc']
+
+    ddf = dd.read_csv(file,
+                      sep='\t',
+                      blocksize='150MB',
+                      encoding="ISO-8859-1",
+                      usecols=vhist_cols, 
+                      dtype={'ncid': object})
+    print('read in NC voter history')
+
+    # Filter to just 2016 and 2012 General elections
+    ddf['election_year'] = ddf['election_desc'].apply(get_election_year, meta=('election_year', np.float64))
+    ddf = ddf.dropna(subset=['election_year'])
+    print('Cleaned NC Voter History Data')
+    return ddf
+
+def merge_NC_16(voters, vhist):
+    '''
+    Takes cleaned NC registered voters, voter history Dask DataFrames.
+    Returns Dask DataFrame of voter history left-merged onto the voter data. 
+    '''
+    voters = voters.set_index('ncid')
+    vhist = vhist.set_index('ncid')
+    ddf = voters.merge(vhist, how='left', left_index=True, right_index=True) 
+    print('Finished merging NC 2016 data')
+    return ddf
+
 def clean_NC_12(input_directory):
     '''
     Cleans the 2012 NC voter data using dask, returning a dask dataframe
@@ -77,59 +137,12 @@ def clean_NC_12(input_directory):
     data = data.rename(columns=new_names)
     return data
 
-def clean_NC_16(input_directory):
-    '''
-    Process raw NC voting and voter history data into a standard-format .tsv
-    :param input_directory: path to read the raw .txt files
-    :param output_directory: path to write the cleaned .tsv files
-    '''
-    
-    # Columns of interest for NC
-    vot_cols = ['ncid', 'voter_status_desc', 'res_street_address', 
-    'res_city_desc', 'state_cd', 'zip_code', 'race_code', 'precinct_abbrv', 'precinct_desc']
-    vhist_cols = ['ncid', 'voting_method', 'pct_description', 'pct_label', 'vtd_label', 'election_desc']
-
-    # Registered voter DataFrame
-    vt_file = input_directory + 'ncvoter_Statewide.txt'
-    vt = dd.read_csv(vt_file,
-                     sep='\t',
-                     blocksize='150MB',
-                     encoding="ISO-8859-1",
-                     usecols=vot_cols, 
-                     dtype={'precinct_abbrv': object,
-                      'precinct_desc': object,
-                      'ncid': object,
-                      'zip_code': object})    
-    print('read in NC voter data')
-
-    # Voter history dataframe
-    vh_file = input_directory + 'ncvhis_Statewide.txt'
-    vh = dd.read_csv(vh_file,
-                 sep='\t',
-                 blocksize='150MB',
-                 encoding="ISO-8859-1",
-                 usecols=vhist_cols, 
-                 dtype={'ncid': object})
-    print('read in NC voter history')
-
-    # Filter voter data to relevant elections, active voters only
-    vh['election_year'] = vh['election_desc'].apply(get_election_year, meta=('election_year', np.float64))
-    vh = vh.dropna(subset=['election_year'])
-    vt['active'] = vt['voter_status_desc'].apply(is_active, meta=('active', np.float64))
-    vt = vt.dropna(subset=['active'])
-
-    # Merge data and return
-    vh = vh.set_index('ncid')
-    vt = vt.set_index('ncid')
-    data = vt.merge(vh, how='left', left_index=True, right_index=True) 
-    print('Finished merging NC 2016 data')
-    return data
-
 def merge_NC(input_directory, output_directory):
     '''
     Cleans both 2016 and 2012 data, left merges 2012 data onto 2016 to create 
     the final version of the dataset
     '''
-    nc16 = clean_NC_16(input_directory)
-    nc12 = clean_NC_12(input_directory)
-    return
+    nc16 = clean_NC_16(input_directory).set_index('ncid')
+    nc12 = clean_NC_12(input_directory).set_index('ncid')
+    ddf = nc16.merge(nc12, how='left', left_index=True, right_index=True)
+    return ddf
