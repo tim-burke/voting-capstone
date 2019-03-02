@@ -26,6 +26,29 @@ def is_active(voter_status_desc):
     else:
         return np.nan
 
+def find_house_num(address):
+    '''
+    Helper function to extract the house number from the address
+    Apply to the address row
+    '''
+    nums = re.findall('\d+', address)
+    if nums:
+        return int(nums[0])
+    else:
+        return -1
+
+def house_num_match(row):
+    '''
+    Returns 1 if house # matches, else NaN. 
+    Apply to DataFrame rows
+    '''
+    h12 = row['house_num_12']
+    h16 = row['house_num_16']
+    if h16 == h12:
+        return 1.0
+    else:
+        return np.nan
+
 def fix_address(row):
     '''
     Takes a dataframe row, returns a single clean address string
@@ -38,6 +61,18 @@ def fix_address(row):
     unstripped_address = '{} {} {} {}'.format(house_number, direction, street_name, street_type)
     address = re.sub('\s+', ' ', unstripped_address).strip()
     return address
+
+def de_duplicate_ncid(ddf):
+    '''
+    Slow workaround to drop all duplicated NCIDs in vhist.
+    Necessary because Dask has not implemented this behavior yet
+    '''
+
+    # Eliminate duplicates, voters who only were in one election
+    counts = ddf.groupby('ncid')['election_year'].count().compute()
+    mask = counts.values != 2
+    s = set(counts.index[mask]) # set of duplicated ncids
+    ddf = ddf.set_index()
 
 def clean_NC_voters_16(input_directory):
     '''
@@ -62,6 +97,7 @@ def clean_NC_voters_16(input_directory):
     # Select rows with active voters only
     ddf['active'] = ddf['voter_status_desc'].apply(is_active, meta=('active', np.float64))
     ddf = ddf.dropna(subset=['active'])
+    ddf['house_num_16'] = ddf['res_street_address'].apply(find_house_num, meta=('house_num_16', int))
     print('Cleaned NC Voter Data')
     return ddf
 
@@ -132,17 +168,39 @@ def clean_NC_12(input_directory):
             'precinct_abbrv', 'precinct_desc']
     new_names = {'voter_status_desc': 'voter_status_12', 'address': 'address_12', 'voter_status_desc': 'voter_status_12',
              'res_city_desc': 'res_city_desc_12', 'state_cd': 'state_cd_12', 'zip_code': 'zip_code_12',
-             'precinct_abbrv': 'precinct_abbrv_12', 'precinct_desc': 'precinct_desc_12'}
+             'precinct_abbrv': 'precinct_abbrv_12', 'precinct_desc': 'precinct_desc_12', 'house_num': 'house_num_12'}
     data = data[new_cols]
     data = data.rename(columns=new_names)
     return data
 
-def merge_NC(input_directory, output_directory):
+def de_duplicate_vhist(ddf):
     '''
-    Cleans both 2016 and 2012 data, left merges 2012 data onto 2016 to create 
-    the final version of the dataset
+    Takes dask dataframe, removes NCID duplicates. 
+    Used for Voter history, so assumes that bad NCIDs are those that appear
+    more than twice (duplicates) or less (voters without records in both elections).
+    Return: ddf with NCID as index, duplicates removed.  
     '''
-    nc16 = clean_NC_16(input_directory).set_index('ncid')
-    nc12 = clean_NC_12(input_directory).set_index('ncid')
-    ddf = nc16.merge(nc12, how='left', left_index=True, right_index=True)
+    counts = ddf.groupby('ncid')['election_year'].count().compute()
+    mask = counts.values == 2
+    s = set(counts.index[mask])
+    ddf = ddf.set_index('ncid')
+    ddf = ddf.map_partitions(lambda x: x[x.index.isin(s)], 
+                             meta=dict(ddf.dtypes))
+    print('Removed duplicate NCID cases')
     return ddf
+
+def merge_NC(input_directory):
+    '''
+    Cleans 2016 voter data, inner merges to 2012 voter data,
+    filters to voters who did not move. 
+    '''
+    nc16 = clean_NC_voters_16(input_directory).set_index('ncid')
+    nc12 = clean_NC_12(input_directory).set_index('ncid')
+    ddf = nc16.merge(nc12, how='inner', left_index=True, right_index=True)
+    ddf['address_match'] = ddf.apply(house_num_match, axis=1, meta=('address_match', float))
+    ddf = ddf.dropna(subset=['address_match'])
+    vhist = clean_NC_vhist_16(input_directory)
+    vhist = de_duplicate_vhist(vhist)
+    ddf = ddf.merge(vhist, how='inner', left_index=True, right_index=True)
+    return ddf
+
