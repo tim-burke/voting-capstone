@@ -74,16 +74,15 @@ def de_duplicate_ncid(ddf):
     s = set(counts.index[mask]) # set of duplicated ncids
     ddf = ddf.set_index()
 
-def clean_NC_voters_16(input_directory):
+def clean_NC_voters_16(filepath):
     '''
-    Cleans the NC voter files ('ncvoter_Statewide.txt'), filtering to active voters.
+    Cleans the NC voter files, filtering to active voters.
     Returns a Dask DataFrame of the data
     '''
-    file = input_directory + 'ncvoter_Statewide.txt'
     vot_cols = ['ncid', 'voter_status_desc', 'res_street_address', 
     'res_city_desc', 'state_cd', 'zip_code', 'race_code', 'precinct_abbrv', 'precinct_desc']    
 
-    ddf = dd.read_csv(file,
+    ddf = dd.read_csv(filepath,
                       sep='\t',
                       blocksize='150MB',
                       encoding="ISO-8859-1",
@@ -101,16 +100,15 @@ def clean_NC_voters_16(input_directory):
     print('Cleaned NC Voter Data')
     return ddf
 
-def clean_NC_vhist_16(input_directory):
+def clean_NC_vhist_16(filepath):
     '''
     Cleans the NC voter history files ('ncvoter_Statewide.txt'),
     creating an election year column and filtering to 2012 and 2016 general elections.
     Returns a Dask DataFrame of the data
     '''    
-    file = input_directory + 'ncvhis_Statewide.txt'
     vhist_cols = ['ncid', 'voting_method', 'pct_description', 'pct_label', 'vtd_label', 'election_desc']
 
-    ddf = dd.read_csv(file,
+    ddf = dd.read_csv(filepath,
                       sep='\t',
                       blocksize='150MB',
                       encoding="ISO-8859-1",
@@ -135,16 +133,15 @@ def merge_NC_16(voters, vhist):
     print('Finished merging NC 2016 data')
     return ddf
 
-def clean_NC_12(input_directory):
+def clean_NC_12(filepath):
     '''
     Cleans the 2012 NC voter data using dask, returning a dask dataframe
     '''
-    file = input_directory + 'NC_2012.tsv'
     cols_2012 = ['ncid', 'voter_status_desc', 'house_num','street_dir', 
             'street_name', 'street_type_cd', 'res_city_desc', 'state_cd', 'zip_code', 
             'precinct_abbrv', 'precinct_desc']
 
-    data = dd.read_csv(file, 
+    data = dd.read_csv(filepath, 
                    sep='\t',
                    encoding='UTF-16',
                    blocksize='150MB',
@@ -189,18 +186,18 @@ def de_duplicate_vhist(ddf):
     print('Removed duplicate NCID cases')
     return ddf
 
-def merge_NC(input_directory):
+def merge_NC(filepaths):
     '''
     Cleans 2016 voter data, inner merges to 2012 voter data,
     filters to voters who did not move. 
+    filepaths is a dict of paths to each voter file
     '''
-    nc16 = clean_NC_voters_16(input_directory).set_index('ncid')
-    nc12 = clean_NC_12(input_directory).set_index('ncid')
+    nc16 = clean_NC_voters_16(filepaths['voters16']).set_index('ncid')
+    nc12 = clean_NC_12(filepaths['voters12']).set_index('ncid')
     ddf = nc16.merge(nc12, how='inner', left_index=True, right_index=True)
     ddf['address_match'] = ddf.apply(house_num_match, axis=1, meta=('address_match', float))
     ddf = ddf.dropna(subset=['address_match'])
-    vhist = clean_NC_vhist_16(input_directory)
+    vhist = clean_NC_vhist_16(filepaths['vhist16'])
     vhist = de_duplicate_vhist(vhist)
     ddf = ddf.merge(vhist, how='inner', left_index=True, right_index=True)
     return ddf
-

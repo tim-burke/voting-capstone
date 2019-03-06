@@ -3,36 +3,48 @@
 import click
 from cleaning_functions import *
 
-def data_to_csv(df, output_directory, filename):
-    print('Writing data to {}...'.format(output_directory + filename))
-    df.to_csv(output_directory + filename, sep='\t')
-    print('Wrote all {} files to {}'.format(filename, output_directory))
+def data_to_csv(df, outpath):
+    print('Writing data to {}...'.format(outpath))
+    df.to_csv(outpath, sep='\t')
+    print('Wrote all files to {}'.format(outpath))
 
-def main(state, input_directory, output_directory):
+def main(state, filepaths, output_directory, sample=1.0):
     '''
     Takes given states and directories, runs functions to produce clean .tsv data
     '''
-    filename = '{}-*.tsv'.format(state)
+    outpath = output_directory + '{}-*.tsv'.format(state)
     if state == 'NC':
-        ddf = merge_NC(input_directory) # Takes forever 
+        ddf = merge_NC(filepaths) # Takes forever 
+    if sample != 1.0:
+        ddf = ddf.sample(frac=sample, random_state=1337)
 
-    data_to_csv(ddf, output_directory, filename)
+    data_to_csv(ddf, outpath)
 
 if __name__ == '__main__':
     
+    # Edit filenames to reflect your local files
+    filepaths = {'voters16': 'ncvoter_Statewide.txt', 'vhist16': 'ncvhis_Statewide.txt', 'voters12': 'NC_2012.tsv'}
+
     input_directory = click.prompt('Input directory containing raw data',
                                    default='../../data/raw/',
                                    show_default=True,
                                    type=click.Path(exists=True))
 
+    output_directory = click.prompt('Output directory to write processed data',
+                                default='../../data/interim/',
+                                show_default=True,
+                                type=click.Path(exists=True)) 
+
     state = click.prompt('Which state is the data from?',
                          default='NC',
                          show_default=True,
                          type=str)
+    
+    sample = click.prompt('Proportion of data to output?',
+                         default=1.0,
+                         show_default=True,
+                         type=float)
+    
+    filepaths = {key: input_directory + filepaths[key] for key in filepaths}
 
-    output_directory = click.prompt('Output directory to write processed data',
-                                    default='../../data/processed/NC/',
-                                    show_default=True,
-                                    type=click.Path(exists=True))    
-
-    main(state, input_directory, output_directory)
+    main(state, filepaths, output_directory, sample)
