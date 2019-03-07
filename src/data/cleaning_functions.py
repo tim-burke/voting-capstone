@@ -201,3 +201,16 @@ def merge_NC(filepaths):
     vhist = de_duplicate_vhist(vhist)
     ddf = ddf.merge(vhist, how='inner', left_index=True, right_index=True)
     return ddf
+
+def sample_by_NCID(ddf, frac):
+    '''
+    Randomly sample from a dask dataframe by NCID s.t. all occurences of
+    each NCID will appear in the sample. 
+    Assumes the data are in their final format, i.e. 2 copies of each NCID. 
+    '''
+    unique = ddf.drop_duplicates(subset=['ncid'], keep='first') # get unique NCIDs
+    ncids = set(unique['ncid'].sample(frac=0.05).compute().values) # place them in a set
+    ddf = ddf.map_partitions(lambda x: x[x.ncid.isin(s)], meta=dict(ddf.dtypes))
+    return ddf
+
+
