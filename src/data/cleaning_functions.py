@@ -53,12 +53,17 @@ def fix_address(row):
     '''
     Takes a dataframe row, returns a single clean address string
     Helper function for clean_NC_12
+    Update: Add fields for Google API queries
     '''
     house_number = str(row['house_num'])
     direction = row['street_dir']
     street_name = row['street_name']
     street_type = row['street_type_cd']  
-    unstripped_address = '{} {} {} {}'.format(house_number, direction, street_name, street_type)
+    city_name = df['res_city_desc']
+    state_cd = df['state_cd']
+    zipcode = df['zip_code']
+
+    unstripped_address =  '{} {} {} {},{},{} {}'.format(house_number, direction, street_name, street_type, city_name, state_cd, zipcode)
     address = re.sub('\s+', ' ', unstripped_address).strip()
     return address
 
