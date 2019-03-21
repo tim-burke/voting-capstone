@@ -106,7 +106,8 @@ def clean_NC_vhist_16(filepath):
     creating an election year column and filtering to 2012 and 2016 general elections.
     Returns a Dask DataFrame of the data
     '''    
-    vhist_cols = ['ncid', 'voting_method', 'pct_description', 'pct_label', 'vtd_label', 'election_desc']
+    vhist_cols = ['ncid', 'voting_method', 'pct_description', 'pct_label',
+     'vtd_label', 'election_desc', 'county_desc']
 
     ddf = dd.read_csv(filepath,
                       sep='\t',
