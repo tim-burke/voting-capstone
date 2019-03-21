@@ -220,7 +220,7 @@ def sample_by_NCID(ddf, frac):
     ddf = ddf.map_partitions(lambda x: x[x.ncid.isin(s)], meta=dict(ddf.dtypes))
     return ddf
 
-def get_coords(api_key,ddf):
+def get_coords(ddf):
     '''
     Generate latitude,longitude) tuple through Google API query on 
     location (precinct/voter residence) and convert to individual columns.
