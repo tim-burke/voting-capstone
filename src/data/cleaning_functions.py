@@ -59,9 +59,9 @@ def fix_address(row):
     direction = row['street_dir']
     street_name = row['street_name']
     street_type = row['street_type_cd']  
-    city_name = df['res_city_desc']
-    state_cd = df['state_cd']
-    zipcode = df['zip_code']
+    city_name = row['res_city_desc']
+    state_cd = row['state_cd']
+    zipcode = row['zip_code']
 
     unstripped_address =  '{} {} {} {},{},{} {}'.format(house_number, direction, street_name, street_type, city_name, state_cd, zipcode)
     address = re.sub('\s+', ' ', unstripped_address).strip()
