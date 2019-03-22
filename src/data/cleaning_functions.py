@@ -2,6 +2,7 @@
 
 import numpy as np
 import dask.dataframe as dd
+import pandas as pd
 import re
 
 def get_election_year(election_desc):
@@ -49,6 +50,20 @@ def house_num_match(row):
     else:
         return np.nan
 
+def poll_address(row):
+    '''
+    Fixes address format for polling place data
+    Helper function to clean_NC_polling
+    '''
+    house_number = str(row['house_num'])
+    street_name = row['street_name']
+    city_name = row['city']
+    state_cd = row['state']
+    zipcode = row['zip']
+    unstripped_address = '{} {}, {}, {} {}'.format(house_number, street_name, city_name, state_cd, zipcode)
+    address = re.sub('\s+', ' ', unstripped_address).strip()
+    return address
+
 def fix_address(row):
     '''
     Takes a dataframe row, returns a single clean address string
@@ -84,8 +99,7 @@ def clean_NC_voters_16(filepath):
     Cleans the NC voter files, filtering to active voters.
     Returns a Dask DataFrame of the data
     '''
-    vot_cols = ['ncid', 'voter_status_desc', 'res_street_address', 
-    'res_city_desc', 'state_cd', 'zip_code', 'race_code', 'precinct_abbrv', 'precinct_desc']    
+    vot_cols = ['ncid', 'voter_status_desc', 'res_street_address', 'race_code', 'precinct_abbrv', 'precinct_desc']    
 
     ddf = dd.read_csv(filepath,
                       sep='\t',
@@ -96,12 +110,13 @@ def clean_NC_voters_16(filepath):
                       'precinct_desc': object,
                       'ncid': object,
                       'zip_code': object})    
-    print('Read in NC voter data')
+    print('Read in NC Voter Data')
 
     # Select rows with active voters only
     ddf['active'] = ddf['voter_status_desc'].apply(is_active, meta=('active', np.float64))
     ddf = ddf.dropna(subset=['active'])
     ddf['house_num_16'] = ddf['res_street_address'].apply(find_house_num, meta=('house_num_16', int))
+    ddf = ddf.drop('res_street_address', axis=1)
     print('Cleaned NC Voter Data')
     return ddf
 
@@ -120,7 +135,7 @@ def clean_NC_vhist_16(filepath):
                       encoding="ISO-8859-1",
                       usecols=vhist_cols, 
                       dtype={'ncid': object})
-    print('read in NC voter history')
+    print('Read in NC Voter History')
 
     # Filter to just 2016 and 2012 General elections
     ddf['election_year'] = ddf['election_desc'].apply(get_election_year, meta=('election_year', np.float64))
@@ -143,7 +158,7 @@ def clean_NC_12(filepath):
     '''
     Cleans the 2012 NC voter data using dask, returning a dask dataframe
     '''
-    cols_2012 = ['ncid', 'voter_status_desc', 'house_num','street_dir', 
+    cols_2012 = ['ncid', 'voter_status_desc', 'house_num', 'street_dir', 
             'street_name', 'street_type_cd', 'res_city_desc', 'state_cd', 'zip_code', 
             'precinct_abbrv', 'precinct_desc']
 
@@ -154,8 +169,9 @@ def clean_NC_12(filepath):
                    usecols=cols_2012,
                    dtype={'precinct_abbrv': object,
                     'precinct_desc': object,
-                     'zip_code': object,
-                      'ncid': object})
+                     'zip_code': object, 
+                     'house_num': int,
+                     'ncid': object})
     
     # Filter out bad rows
     data = data.dropna(subset=['precinct_desc'])
@@ -166,15 +182,32 @@ def clean_NC_12(filepath):
     data['address'] = data.apply(fix_address, axis=1, meta=('address', object))
 
     # Return relevant columns
-    new_cols = ['ncid', 'voter_status_desc', 'house_num', 'address',
-            'res_city_desc', 'state_cd', 'zip_code',
-            'precinct_abbrv', 'precinct_desc']
-    new_names = {'voter_status_desc': 'voter_status_12', 'address': 'address_12', 'voter_status_desc': 'voter_status_12',
-             'res_city_desc': 'res_city_desc_12', 'state_cd': 'state_cd_12', 'zip_code': 'zip_code_12',
-             'precinct_abbrv': 'precinct_abbrv_12', 'precinct_desc': 'precinct_desc_12', 'house_num': 'house_num_12'}
+    new_cols = ['ncid', 'house_num', 'address']
+    new_names = {'house_num': 'house_num_12'}
     data = data[new_cols]
     data = data.rename(columns=new_names)
     return data
+
+def clean_NC_polling(filepaths):
+    '''
+    Cleans the polling place data for North Carolina, returns pd DataFrame
+    '''
+    p12 = pd.read_csv(filepaths['polls_12'], 
+                      encoding='utf-16',
+                      sep='\t', 
+                      dtype={'zip': object})
+    p16 = pd.read_csv(filepaths['polls_16'], 
+                      encoding='utf-16',
+                      sep='\t', 
+                      dtype={'zip': object})
+    p12['election_year'] = 2012.
+    p16['election_year'] = 2016.
+    pp = pd.concat((p16, p12))
+    pp['city'] = pp['city'].fillna('CONWAY') # Correct missing data
+    pp['poll_address'] = pp.apply(poll_address, axis=1)
+    pp = pp.drop(['election_dt', 'house_num', 'street_name', 
+                 'city', 'state', 'zip', 'polling_place_id'], axis=1)
+    return pp
 
 def de_duplicate_vhist(ddf):
     '''
@@ -201,11 +234,30 @@ def merge_NC(filepaths):
     nc16 = clean_NC_voters_16(filepaths['voters16']).set_index('ncid')
     nc12 = clean_NC_12(filepaths['voters12']).set_index('ncid')
     ddf = nc16.merge(nc12, how='inner', left_index=True, right_index=True)
+    
+    # Filter to only voters whose address didn't change b/t '12 & '16
     ddf['address_match'] = ddf.apply(house_num_match, axis=1, meta=('address_match', float))
     ddf = ddf.dropna(subset=['address_match'])
+    ddf = ddf.drop('address_match', axis=1)
+
+    # Merge on cleaned voter histories
     vhist = clean_NC_vhist_16(filepaths['vhist16'])
     vhist = de_duplicate_vhist(vhist)
     ddf = ddf.merge(vhist, how='inner', left_index=True, right_index=True)
+
+    # Fix minor data inconsistencies in precincts
+    ddf['precinct'] = ddf['precinct_desc'].combine_first(ddf['pct_description'])
+    ddf['precinct'] = ddf['precinct'].mask(ddf['precinct'] == 'GLOBE/JOHNS RIVER/MULBERRY/WILSON CREEK',
+                                                                 'GLOBE/JOHNS RIVER/MULBERRY/WIL')
+    
+    # Merge on precincts
+    ddf = ddf.reset_index()
+    pp = clean_NC_polling(filepaths)
+    ddf = ddf.merge(pp,
+                   how='inner',
+                   left_on=['county_desc', 'precinct', 'election_year'],
+                   right_on=['county_name', 'precinct_name', 'election_year'])
+    ddf = ddf.drop(['pct_description', 'precinct_desc', 'precinct_name', 'house_num_16', 'house_num_12'], axis=1)
     return ddf
 
 def sample_by_NCID(ddf, frac):

@@ -23,7 +23,11 @@ def main(state, filepaths, output_directory, sample=1.0):
 if __name__ == '__main__':
     
     # Edit filenames to reflect your local files
-    filepaths = {'voters16': 'ncvoter_Statewide.txt', 'vhist16': 'ncvhis_Statewide.txt', 'voters12': 'NC_2012.tsv'}
+    filepaths = {'voters16': 'ncvoter_Statewide.txt',
+                 'vhist16': 'ncvhis_Statewide.txt',
+                 'voters12': 'NC_2012.tsv', 
+                 'polls_12': 'polling_place_2012.csv',
+                 'polls_16': 'polling_place_2016.csv'}
 
     input_directory = click.prompt('Input directory containing raw data',
                                    default='../../data/raw/',
