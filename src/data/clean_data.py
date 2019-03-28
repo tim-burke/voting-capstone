@@ -26,8 +26,8 @@ if __name__ == '__main__':
     filepaths = {'voters16': 'ncvoter_Statewide.txt',
                  'vhist16': 'ncvhis_Statewide.txt',
                  'voters12': 'NC_2012.tsv', 
-                 'polls_12': 'polling_place_2012.csv',
-                 'polls_16': 'polling_place_2016.csv'}
+                 'polls_12': 'polling_place_20121106.csv',
+                 'polls_16': 'polling_place_20161108.csv'}
 
     input_directory = click.prompt('Input directory containing raw data',
                                    default='../../data/raw/',

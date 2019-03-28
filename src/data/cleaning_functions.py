@@ -104,7 +104,7 @@ def clean_NC_voters_16(filepath):
 
     ddf = dd.read_csv(filepath,
                       sep='\t',
-                      blocksize='150MB',
+                      blocksize=150000000,
                       encoding="ISO-8859-1",
                       usecols=vot_cols, 
                       dtype={'precinct_abbrv': object,
@@ -132,7 +132,7 @@ def clean_NC_vhist_16(filepath):
 
     ddf = dd.read_csv(filepath,
                       sep='\t',
-                      blocksize='150MB',
+                      blocksize=150000000,
                       encoding="ISO-8859-1",
                       usecols=vhist_cols, 
                       dtype={'ncid': object})
@@ -166,7 +166,7 @@ def clean_NC_12(filepath):
     data = dd.read_csv(filepath, 
                    sep='\t',
                    encoding='UTF-16',
-                   blocksize='150MB',
+                   blocksize=150000000,
                    usecols=cols_2012,
                    dtype={'precinct_abbrv': object,
                     'precinct_desc': object,
