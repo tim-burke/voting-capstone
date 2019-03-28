@@ -4,6 +4,7 @@ import numpy as np
 import dask.dataframe as dd
 import pandas as pd
 import re
+import csv
 from pygeocoder import Geocoder as gc
 
 def get_election_year(election_desc):
@@ -167,7 +168,8 @@ def clean_NC_12(filepath):
                    sep='\t',
                    encoding='UTF-16',
                    blocksize=150000000,
-                   usecols=cols_2012,
+                   usecols=cols_2012, 
+                   quoting=csv.QUOTE_NONE,
                    dtype={'precinct_abbrv': object,
                     'precinct_desc': object,
                      'zip_code': object, 
