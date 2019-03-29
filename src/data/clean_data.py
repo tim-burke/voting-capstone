@@ -5,7 +5,7 @@ from cleaning_functions import *
 
 def data_to_csv(df, outpath):
     print('Writing data to {}...'.format(outpath))
-    df.to_csv(outpath, sep='\t')
+    df.to_csv(outpath, sep='\t', index=False)
     print('Wrote all files to {}'.format(outpath))
 
 def main(state, filepaths, output_directory, sample=1.0):
