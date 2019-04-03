@@ -1,5 +1,6 @@
 # This file is for querying coordinates using the Google API
 import pandas as pd
+import click
 from config import api_key # your google api key
 from pygeocoder import Geocoder as gc
 
@@ -23,11 +24,11 @@ def main(directory, name_fmt, file_range, new_fmt='NC-*_coords.tsv'):
         if i < 10:
             i = '0' + str(i)
         filename = directory + name_fmt.replace('*', str(i))
-        df = pd.read(, sep='\t')
+        df = pd.read_csv(filename, sep='\t')
         if df.shape[0] == 0:
             continue # Edge case of empty CSV
         df = get_coords(df)
-        new_name = new_fmt.replace('*', str(i))
+        new_name = directory + new_fmt.replace('*', str(i))
         df.to_csv(new_name, sep='\t')
 
 if __name__ == '__main__':
@@ -44,10 +45,10 @@ if __name__ == '__main__':
                         show_default=True, 
                         type=int)
     end_at = click.prompt('CSV to end at:', 
-                        default=10, 
+                        default=2, 
                         show_default=True, 
                         type=int)
-    name_fmt = click.prompt('Format for new CSV filenames', 
+    new_fmt = click.prompt('Format for new CSV filenames', 
                             default='NC-*_coords.tsv', 
                             show_default=True, 
                             type=str)
