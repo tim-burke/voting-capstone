@@ -14,7 +14,7 @@ def geocode(address, geolocator):
         coords = geolocator.geocode(address)
         return coords
     except GeocoderError:
-        return np.nan
+        return (np.nan, np.nan)
 
 def get_coords(df):
     '''
@@ -25,7 +25,7 @@ def get_coords(df):
     Requires config.py with API key (currently suppressed by .gitignore)
     '''
     geolocator = gc(api_key)
-    df['coords'] = df['address'].apply(geocode, args=(geolocator)).apply(lambda x: (x.latitude, x.longitude))
+    df['coords'] = df['address'].apply(geocode, args=[geolocator]).apply(lambda x: (x.latitude, x.longitude))
     df[['latitude', 'longitude']] = pd.DataFrame(df['coords'].tolist(), index=df.index)
     return df
 
