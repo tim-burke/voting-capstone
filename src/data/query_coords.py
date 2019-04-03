@@ -1,8 +1,20 @@
 # This file is for querying coordinates using the Google API
 import pandas as pd
+import numpy as np
 import click
 from config import api_key # your google api key
 from pygeocoder import Geocoder as gc
+from pygeolib import GeocoderError
+
+def geocode(address, geolocator):
+    '''
+    Wraps exception handling around pygeocoder b/c apparently that's too much to ask. 
+    '''
+    try:
+        coords = geolocator.geocode(address)
+        return coords
+    except GeocoderError:
+        return np.nan
 
 def get_coords(df):
     '''
@@ -12,10 +24,9 @@ def get_coords(df):
     with valid ddf[address] column.
     Requires config.py with API key (currently suppressed by .gitignore)
     '''
-    geolocator = gc(config.api_key)
-    df['coords'] = df['address'].apply(geolocator.geocode).apply(lambda x: (x.latitude, x.longitude))
+    geolocator = gc(api_key)
+    df['coords'] = df['address'].apply(geocode, args=(geolocator)).apply(lambda x: (x.latitude, x.longitude))
     df[['latitude', 'longitude']] = pd.DataFrame(df['coords'].tolist(), index=df.index)
-
     return df
 
 def main(directory, name_fmt, file_range, new_fmt='NC-*_coords.tsv'):

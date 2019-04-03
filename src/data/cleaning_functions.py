@@ -28,6 +28,16 @@ def is_active(voter_status_desc):
     else:
         return np.nan
 
+def changed_polling_location(row):
+    """
+    Indicates whether someone was moved to a different
+    polling place between 2012 general election and 2016 general election.
+    """
+    if str(row['precinct_abbrv']).strip() != str(row['precinct_abbrv_12']).strip():
+        return 1
+    else:
+        return 0
+
 def find_house_num(address):
     '''
     Helper function to extract the house number from the address
@@ -100,7 +110,8 @@ def clean_NC_voters_16(filepath):
     Cleans the NC voter files, filtering to active voters.
     Returns a Dask DataFrame of the data
     '''
-    vot_cols = ['ncid', 'voter_status_desc', 'res_street_address', 'race_code', 'precinct_abbrv', 'precinct_desc']    
+    vot_cols = ['ncid', 'voter_status_desc', 'res_street_address', 
+                'race_code', 'precinct_abbrv', 'precinct_desc']    
 
     ddf = dd.read_csv(filepath,
                       sep='\t',
@@ -184,8 +195,8 @@ def clean_NC_12(filepath):
     data['address'] = data.apply(fix_address, axis=1, meta=('address', object))
 
     # Return relevant columns
-    new_cols = ['ncid', 'house_num', 'address']
-    new_names = {'house_num': 'house_num_12'}
+    new_cols = ['ncid', 'house_num', 'address', 'precinct_abbrv']
+    new_names = {'house_num': 'house_num_12', 'precinct_abbrv': 'precinct_abbrv_12'}
     data = data[new_cols]
     data = data.rename(columns=new_names)
     return data
@@ -236,11 +247,12 @@ def merge_NC(filepaths):
     nc16 = clean_NC_voters_16(filepaths['voters16']).set_index('ncid')
     nc12 = clean_NC_12(filepaths['voters12']).set_index('ncid')
     ddf = nc16.merge(nc12, how='inner', left_index=True, right_index=True)
+    ddf['poll_changed'] = ddf.apply(changed_polling_location, axis=1, meta=('poll_changed', int))
     
     # Filter to only voters whose address didn't change b/t '12 & '16
     ddf['address_match'] = ddf.apply(house_num_match, axis=1, meta=('address_match', float))
     ddf = ddf.dropna(subset=['address_match'])
-    ddf = ddf.drop('address_match', axis=1)
+    ddf = ddf.drop(['address_match', 'precinct_abbrv', 'precinct_abbrv_12'], axis=1)
 
     # Merge on cleaned voter histories
     vhist = clean_NC_vhist_16(filepaths['vhist16'])
