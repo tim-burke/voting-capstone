@@ -5,7 +5,6 @@ import dask.dataframe as dd
 import pandas as pd
 import re
 import csv
-from pygeocoder import Geocoder as gc
 
 def get_election_year(election_desc):
     '''
@@ -273,19 +272,3 @@ def sample_by_NCID(ddf, frac):
     ncids = set(unique['ncid'].sample(frac=0.05).compute().values) # place them in a set
     ddf = ddf.map_partitions(lambda x: x[x.ncid.isin(s)], meta=dict(ddf.dtypes))
     return ddf
-
-def get_coords(ddf):
-    '''
-    Generate latitude,longitude) tuple through Google API query on 
-    location (precinct/voter residence) and convert to individual columns.
-    Assumes the data is in its final format, i.e. unique row for each voter 
-    with valid ddf[address] column.
-    Requires config.py with API key (currently suppressed by .gitignore)
-    '''
-    geolocator = gc(config.api_key)
-    ddf['coords'] = ddf['address'].apply(geolocator.geocode).apply(lambda x: (x.latitude, x.longitude))
-    ddf[['latitude', 'longitude']] = pd.DataFrame(ddf['coords'].tolist(), index=ddf.index)
-
-    return ddf
-
-
