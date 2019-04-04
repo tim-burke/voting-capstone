@@ -8,13 +8,20 @@ from pygeolib import GeocoderError
 
 def geocode(address, geolocator):
     '''
-    Wraps exception handling around pygeocoder b/c apparently that's too much to ask. 
+   Wraps exception handling around pygeocoder b/c apparently that's too much to ask. 
     '''
     try:
         coords = geolocator.geocode(address)
         return coords
-    except GeocoderError:
+    except GeocoderError as e:
+        print(e)
         return (np.nan, np.nan)
+
+def extract_coords(x):
+    if type(x) == tuple:
+        return x
+    else:
+        return (x.latitude, x.longitude)
 
 def get_coords(df):
     '''
@@ -25,7 +32,7 @@ def get_coords(df):
     Requires config.py with API key (currently suppressed by .gitignore)
     '''
     geolocator = gc(api_key)
-    df['coords'] = df['address'].apply(geocode, args=[geolocator]).apply(lambda x: (x.latitude, x.longitude))
+    df['coords'] = df['address'].apply(geocode, args=[geolocator]).apply(extract_coords)
     df[['latitude', 'longitude']] = pd.DataFrame(df['coords'].tolist(), index=df.index)
     return df
 
