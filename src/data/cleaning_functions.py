@@ -13,20 +13,21 @@ def get_election_year(election_desc):
     '''
     if election_desc == '11/08/2016 GENERAL':
         return 2016
-    elif election_desc == '11/06/2012 GENERAL':
-        return 2012
     else:
         return np.nan
 
-def is_active(voter_status_desc):
+def is_eligible(row):
     '''
     Apply to voter_status_desc column, returns nan for inactive
     Helper function to clean_NC_12
     '''
-    if voter_status_desc == 'ACTIVE':
+    status = row['voter_status_desc']
+    reason = row['voter_status_reason_desc']
+    if status == "ACTIVE" or status == 'INACTIVE' and reason == 'CONFIRMATION NOT RETURNED':
         return 1.0
     else:
         return np.nan
+
 
 def changed_polling_location(row):
     """
@@ -93,43 +94,31 @@ def fix_address(row):
     address = re.sub('\s+', ' ', unstripped_address).strip()
     return address
 
-def de_duplicate_ncid(ddf):
-    '''
-    Slow workaround to drop all duplicated NCIDs in vhist.
-    Necessary because Dask has not implemented this behavior yet
-    '''
-
-    # Eliminate duplicates, voters who only were in one election
-    counts = ddf.groupby('ncid')['election_year'].count().compute()
-    mask = counts.values != 2
-    s = set(counts.index[mask]) # set of duplicated ncids
-    ddf = ddf.set_index()
-
 def clean_NC_voters_16(filepath):
     '''
     Cleans the NC voter files, filtering to active voters.
     Returns a Dask DataFrame of the data
     '''
-    vot_cols = ['ncid', 'voter_status_desc', 'res_street_address', 
-                'race_code', 'precinct_abbrv', 'precinct_desc']    
+    vot_cols = ['ncid', 'voter_status_desc', 'res_street_address', 'county_desc',
+                'race_code', 'precinct_abbrv', 'precinct_desc', 'voter_status_reason_desc']
 
     ddf = dd.read_csv(filepath,
                       sep='\t',
                       blocksize=150000000,
                       encoding="ISO-8859-1",
-                      usecols=vot_cols, 
+                      usecols=vot_cols,
                       dtype={'precinct_abbrv': object,
                       'precinct_desc': object,
                       'ncid': object,
-                      'zip_code': object})    
-    print('Read in NC Voter Data')
+                      'zip_code': object})
+    print('Read in 2016 NC Voter Data')
 
     # Select rows with active voters only
-    ddf['active'] = ddf['voter_status_desc'].apply(is_active, meta=('active', np.float64))
-    ddf = ddf.dropna(subset=['active'])
+    # ddf['active'] = ddf['voter_status_desc'].apply(is_eligible, meta=('active', np.float64))
+    # ddf = ddf.dropna(subset=['active'])
     ddf['house_num_16'] = ddf['res_street_address'].apply(find_house_num, meta=('house_num_16', int))
     ddf = ddf.drop('res_street_address', axis=1)
-    print('Cleaned NC Voter Data')
+    print('Cleaned 2016 NC Voter Data')
     return ddf
 
 def clean_NC_vhist_16(filepath):
@@ -139,7 +128,7 @@ def clean_NC_vhist_16(filepath):
     Returns a Dask DataFrame of the data
     '''    
     vhist_cols = ['ncid', 'voting_method', 'pct_description', 'pct_label',
-     'vtd_label', 'election_desc', 'county_desc']
+     'vtd_label', 'election_desc']
 
     ddf = dd.read_csv(filepath,
                       sep='\t',
@@ -147,30 +136,20 @@ def clean_NC_vhist_16(filepath):
                       encoding="ISO-8859-1",
                       usecols=vhist_cols, 
                       dtype={'ncid': object})
-    print('Read in NC Voter History')
+    print('Read in 2016 NC Voter History')
 
     # Filter to just 2016 and 2012 General elections
     ddf['election_year'] = ddf['election_desc'].apply(get_election_year, meta=('election_year', np.float64))
     ddf = ddf.dropna(subset=['election_year'])
-    print('Cleaned NC Voter History Data')
-    return ddf
-
-def merge_NC_16(voters, vhist):
-    '''
-    Takes cleaned NC registered voters, voter history Dask DataFrames.
-    Returns Dask DataFrame of voter history left-merged onto the voter data. 
-    '''
-    voters = voters.set_index('ncid')
-    vhist = vhist.set_index('ncid')
-    ddf = voters.merge(vhist, how='left', left_index=True, right_index=True) 
-    print('Finished merging NC 2016 data')
+    ddf['voted'] = 1
+    print('Cleaned 2016 NC Voter History Data')
     return ddf
 
 def clean_NC_12(filepath):
     '''
     Cleans the 2012 NC voter data using dask, returning a dask dataframe
     '''
-    cols_2012 = ['ncid', 'voter_status_desc', 'house_num', 'street_dir', 
+    cols_2012 = ['ncid', 'voter_status_desc', 'voter_status_reason_desc', 'house_num', 'street_dir', 
             'street_name', 'street_type_cd', 'res_city_desc', 'state_cd', 'zip_code', 
             'precinct_abbrv', 'precinct_desc']
 
@@ -185,11 +164,12 @@ def clean_NC_12(filepath):
                      'zip_code': object, 
                      'house_num': int,
                      'ncid': object})
-    
+    print('Read in 2012 NC Voter Data')
+
     # Filter out bad rows
     data = data.dropna(subset=['precinct_desc'])
-    data['active'] = data['voter_status_desc'].apply(is_active, meta=('active', np.float64))
-    data = data.dropna(subset=['active'])
+    # data['active'] = data['voter_status_desc'].apply(is_eligible, meta=('active', np.float64))
+    # data = data.dropna(subset=['active'])
 
     # Create address column
     data['address'] = data.apply(fix_address, axis=1, meta=('address', object))
@@ -199,6 +179,7 @@ def clean_NC_12(filepath):
     new_names = {'house_num': 'house_num_12', 'precinct_abbrv': 'precinct_abbrv_12'}
     data = data[new_cols]
     data = data.rename(columns=new_names)
+    print('Cleaned 2012 NC Voter data')
     return data
 
 def clean_NC_polling(filepaths):
@@ -230,13 +211,28 @@ def de_duplicate_vhist(ddf):
     Return: ddf with NCID as index, duplicates removed.  
     '''
     counts = ddf.groupby('ncid')['election_year'].count().compute()
-    mask = counts.values == 2
+    mask = counts.values == 1
     s = set(counts.index[mask])
     ddf = ddf.set_index('ncid')
     ddf = ddf.map_partitions(lambda x: x[x.index.isin(s)], 
                              meta=dict(ddf.dtypes))
-    print('Removed duplicate NCID cases')
+    print('Removed duplicate NCID from voter history')
     return ddf
+
+def de_duplicate_ncid(ddf):
+    '''
+    Slow workaround to drop all duplicated NCIDs in vhist.
+    Necessary because Dask has not implemented this behavior yet
+    '''
+    # Eliminate duplicates, voters who only were in one election
+    counts = ddf.groupby('ncid')['election_year'].count().compute()
+    mask = counts.values == 1
+    s = set(counts.index[mask]) # set of duplicated ncids
+    ddf = ddf.set_index('ncid')
+    ddf = ddf.map_partitions(lambda x: x[x.index.isin(s)], 
+                             meta=dict(ddf.dtypes))
+    return ddf
+
 
 def merge_NC(filepaths):
     '''
@@ -247,26 +243,32 @@ def merge_NC(filepaths):
     nc16 = clean_NC_voters_16(filepaths['voters16']).set_index('ncid')
     nc12 = clean_NC_12(filepaths['voters12']).set_index('ncid')
     ddf = nc16.merge(nc12, how='inner', left_index=True, right_index=True)
+    ddf['eligible'] = ddf.apply(is_eligible, axis=1, meta=('eligible', object))
     ddf['poll_changed'] = ddf.apply(changed_polling_location, axis=1, meta=('poll_changed', int))
-    
-    # Filter to only voters whose address didn't change b/t '12 & '16
     ddf['address_match'] = ddf.apply(house_num_match, axis=1, meta=('address_match', float))
-    ddf = ddf.dropna(subset=['address_match'])
-    ddf = ddf.drop(['address_match', 'precinct_abbrv', 'precinct_abbrv_12'], axis=1)
+
+    # Filter out voters that are irrelevant to our analysis
+    ddf = ddf.dropna(subset=['address_match', 'eligible'])
+    ddf = ddf.drop(['address_match', 'precinct_abbrv', 'precinct_abbrv_12', 'eligible'], axis=1)
 
     # Merge on cleaned voter histories
     vhist = clean_NC_vhist_16(filepaths['vhist16'])
     vhist = de_duplicate_vhist(vhist)
-    ddf = ddf.merge(vhist, how='inner', left_index=True, right_index=True)
+    ddf = ddf.merge(vhist, how='left', left_index=True, right_index=True)
+    ddf['voted'] = ddf['voted'].fillna(0) # Voters not in vhist did not turn out
+
 
     # Fix minor data inconsistencies in precincts
     ddf['precinct'] = ddf['precinct_desc'].combine_first(ddf['pct_description'])
     ddf['precinct'] = ddf['precinct'].mask(ddf['precinct'] == 'GLOBE/JOHNS RIVER/MULBERRY/WILSON CREEK',
                                                                  'GLOBE/JOHNS RIVER/MULBERRY/WIL')
+    ddf = ddf.dropna(subset=['precinct'])
     
-    # Merge on precincts
+    # Merge precinct addresses on
     ddf = ddf.reset_index()
+    ddf['election_year'] = ddf['election_year'].fillna(2016.)
     pp = clean_NC_polling(filepaths)
+
     ddf = ddf.merge(pp,
                    how='inner',
                    left_on=['county_desc', 'precinct', 'election_year'],
