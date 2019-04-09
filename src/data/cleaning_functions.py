@@ -114,8 +114,6 @@ def clean_NC_voters_16(filepath):
     print('Read in 2016 NC Voter Data')
 
     # Select rows with active voters only
-    # ddf['active'] = ddf['voter_status_desc'].apply(is_eligible, meta=('active', np.float64))
-    # ddf = ddf.dropna(subset=['active'])
     ddf['house_num_16'] = ddf['res_street_address'].apply(find_house_num, meta=('house_num_16', int))
     ddf = ddf.drop('res_street_address', axis=1)
     print('Cleaned 2016 NC Voter Data')
@@ -149,7 +147,7 @@ def clean_NC_12(filepath):
     '''
     Cleans the 2012 NC voter data using dask, returning a dask dataframe
     '''
-    cols_2012 = ['ncid', 'voter_status_desc', 'voter_status_reason_desc', 'house_num', 'street_dir', 
+    cols_2012 = ['ncid', 'voter_status_desc', 'house_num', 'street_dir', 
             'street_name', 'street_type_cd', 'res_city_desc', 'state_cd', 'zip_code', 
             'precinct_abbrv', 'precinct_desc']
 
@@ -168,8 +166,6 @@ def clean_NC_12(filepath):
 
     # Filter out bad rows
     data = data.dropna(subset=['precinct_desc'])
-    # data['active'] = data['voter_status_desc'].apply(is_eligible, meta=('active', np.float64))
-    # data = data.dropna(subset=['active'])
 
     # Create address column
     data['address'] = data.apply(fix_address, axis=1, meta=('address', object))
