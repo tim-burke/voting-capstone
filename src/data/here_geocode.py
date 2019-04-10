@@ -2,26 +2,18 @@
 import pandas as pd
 import numpy as np
 import click
-from config import api_key # your google api key
-from pygeocoder import Geocoder as gc
-from pygeolib import GeocoderError
+from config import here_app_id, here_app_code # your google api key
+import geocoder
+import time
 
-def geocode(address, geolocator):
+def geocode(address, here_app_id, here_app_code):
     '''
-   Wraps exception handling around pygeocoder b/c apparently that's too much to ask. 
+   Wraps exception handling around geocode
     '''
     try:
-        coords = geolocator.geocode(address)
-        return coords
-    except GeocoderError as e:
-        print(e)
-        return (np.nan, np.nan)
-
-def extract_coords(x):
-    if type(x) == tuple:
-        return x
-    else:
-        return (x.latitude, x.longitude)
+        return geocoder.here(address, app_id=here_app_id, app_code=here_app_code).latlng
+    except IndexError:
+        return [np.nan, np.nan]
 
 def get_coords(df):
     '''
@@ -31,8 +23,7 @@ def get_coords(df):
     with valid ddf[address] column.
     Requires config.py with API key (currently suppressed by .gitignore)
     '''
-    geolocator = gc(api_key)
-    df['coords'] = df['address'].apply(geocode, args=[geolocator]).apply(extract_coords)
+    df['coords'] = df['address'].apply(geocode, args=(here_app_id, here_app_code))
     df[['latitude', 'longitude']] = pd.DataFrame(df['coords'].tolist(), index=df.index)
     return df
 
@@ -44,6 +35,7 @@ def main(directory, name_fmt, file_range, new_fmt='NC-*_coords.tsv'):
         elif i < 100:
             i = '0' + str(i)
 
+        start = time.time()
         filename = directory + name_fmt.replace('*', str(i))
         df = pd.read_csv(filename, sep='\t')
         if df.shape[0] == 0:
@@ -51,6 +43,7 @@ def main(directory, name_fmt, file_range, new_fmt='NC-*_coords.tsv'):
         df = get_coords(df)
         new_name = directory + new_fmt.replace('*', str(i))
         df.to_csv(new_name, sep='\t')
+        print('Geocoded {} in {} min'.format(new_name, (time.time()-start) / 60))
 
 if __name__ == '__main__':
     directory = click.prompt('Directory containing CSVs with addresses',
