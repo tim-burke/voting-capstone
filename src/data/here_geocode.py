@@ -54,19 +54,15 @@ if __name__ == '__main__':
                             default='NC-*.tsv', 
                             show_default=True, 
                             type=str)
-    start_at = click.prompt('CSV to start at:', 
-                        default=0, 
-                        show_default=True, 
+    start = click.prompt('CSV number to start at', 
                         type=int)
-    end_at = click.prompt('CSV to end at:', 
-                        default=2, 
-                        show_default=True, 
+    end = click.prompt('CSV to stop at (not inclusive)', 
                         type=int)
     new_fmt = click.prompt('Format for new CSV filenames', 
                             default='NC-*_coords.tsv', 
                             show_default=True, 
                             type=str)
 
-    file_range = range(start_at, end_at)    
+    file_range = range(start, end)    
     main(directory, name_fmt, file_range, new_fmt)
            
