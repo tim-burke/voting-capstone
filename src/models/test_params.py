@@ -34,4 +34,6 @@ if __name__ == '__main__':
     row_counts = []
     for d in distances:
         final_df = make_final_data(df, train, treatment, k, d)
+        if not final_df: # skip if no neighbors found at that distance
+            continue
         # Do stuff here to measure ATE, SE, nrows...? 
