@@ -112,8 +112,8 @@ def find_neighbors(df, nearest_dict, k):
 
 
 def calc_y0(votes, dists, d):
-    mask = np.ma.masked_where(dists < d, votes) # mask values outside distance range
-    result = mask.mean(axis=1)
+    m = np.ma.masked_where(dists > d, votes) # mask values outside distance range
+    result = m.mean(axis=1)
     return result
 
 def make_final_data(df, train, treatment, k, d):
@@ -126,8 +126,8 @@ def make_final_data(df, train, treatment, k, d):
 
     # Get the final results
     control = calc_y0(votes, dists, d)
-    final_df = final_df[control.mask]
-    final_df['y0'] = control[control.mask]
+    final_df = final_df[~control.mask]
+    final_df['y0'] = control[~control.mask]
     final_df = final_df.merge(df[['ncid', 'voted']], how='inner', on='ncid').rename({'voted': 'y1'}, axis=1)
     final_df['ate'] = final_df['y1'] - final_df['y0']
     return final_df
