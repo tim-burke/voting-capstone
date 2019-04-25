@@ -1,11 +1,9 @@
 import pandas as pd
 import numpy as np 
-import matplotlib.pyplot as plt
-import seaborn as sns
+# import matplotlib.pyplot as plt
+# import seaborn as sns
 from sklearn.model_selection import train_test_split
-# import sys
 from nearest_neighbors import *
-
 
 
 if __name__ == '__main__':
@@ -23,7 +21,7 @@ if __name__ == '__main__':
                      show_default=True,
                      type=float)
     
-    distances = list(np.arange(0.1, 2., 0.1))
+    distances = np.arange(0.1, 2., 0.1)
     
     df = load_and_sort(filepath)
     treatment = df.index[df['poll_changed'] == 1].values
@@ -32,8 +30,16 @@ if __name__ == '__main__':
     avg_effects = []
     std_errors = []
     row_counts = []
+    dists = []
     for d in distances:
         final_df = make_final_data(df, train, treatment, k, d)
-        if not final_df: # skip if no neighbors found at that distance
+        if final_df is None: # skip if no neighbors found at that distance
             continue
-        # Do stuff here to measure ATE, SE, nrows...? 
+        else:
+            avg_effects.append(final_df['ate'].mean())
+            row_counts.append(final_df.shape[0])
+            dists.append(d)
+            SE = np.std(final_df['ate']) / np.sqrt(final_df.shape[0])
+            std_errors.append(SE)
+    results = pd.DataFrame({'ate': avg_effects, 'se': std_errors, 'n_rows': row_counts, 'distance': dists})
+    results.to_csv('../../data/processed/k_{0:d}_d_{1:.2f}_{2:.2f}.csv'.format(k, distances[0], distances[-1]), index=False)
