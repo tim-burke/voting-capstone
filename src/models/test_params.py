@@ -1,7 +1,5 @@
 import pandas as pd
 import numpy as np 
-# import matplotlib.pyplot as plt
-# import seaborn as sns
 from sklearn.model_selection import train_test_split
 from nearest_neighbors import *
 
@@ -21,7 +19,7 @@ if __name__ == '__main__':
                      show_default=True,
                      type=float)
     
-    distances = np.arange(0.1, 2., 0.1)
+    distances = np.arange(0.1, 2.1, 0.1)
     
     df = load_and_sort(filepath)
     treatment = df.index[df['poll_changed'] == 1].values
@@ -42,4 +40,5 @@ if __name__ == '__main__':
             SE = np.std(final_df['ate']) / np.sqrt(final_df.shape[0])
             std_errors.append(SE)
     results = pd.DataFrame({'ate': avg_effects, 'se': std_errors, 'n_rows': row_counts, 'distance': dists})
-    results.to_csv('../../data/processed/k_{0:d}_d_{1:.2f}_{2:.2f}.csv'.format(k, distances[0], distances[-1]), index=False)
+    results.to_csv('../../data/processed/param_test_k{}.csv'.format(k), index=False)
+    print('Wrote outcomes to param_test_k{}.csv'.format(k))
