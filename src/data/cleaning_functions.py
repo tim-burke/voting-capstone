@@ -34,7 +34,7 @@ def changed_polling_location(row):
     Indicates whether someone was moved to a different
     polling place between 2012 general election and 2016 general election.
     """
-    if str(row['precinct_abbrv']).strip() != str(row['precinct_abbrv_12']).strip():
+    if str(row['precinct_abbrv']).strip() != str(row['precinct_abbrv_12']).strip() and str(row['precinct_abbrv_12']).strip() != '':
         return 1
     else:
         return 0
