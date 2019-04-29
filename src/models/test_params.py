@@ -7,7 +7,7 @@ from nearest_neighbors import *
 if __name__ == '__main__':
 
     filepath = click.prompt('Filepath to geocoded data',
-                                   default='../../data/interim/full_df.csv',
+                                   default='../../data/processed/fixed_full_df.csv',
                                    show_default=True,
                                    type=click.Path(exists=True))
     k = click.prompt('Number of neighbors per voter',
