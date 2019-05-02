@@ -73,13 +73,6 @@ def k_nearest_dict(df, train, treatment, k=50):
         nearest_dict[i] = control
     return nearest_dict 
 
-def generate_column_names(k):
-    names = ['ncid', 'voted']
-    for i in range(1, k+1):
-        names.append('Neighbor' + str(i) + 'Distance')
-        names.append('Neighbor' + str(i) + 'Voted')
-    return names
-
 
 def find_neighbors(df, nearest_dict, k):
     '''

@@ -34,7 +34,7 @@ def changed_polling_location(row):
     Indicates whether someone was moved to a different
     polling place between 2012 general election and 2016 general election.
     """
-    if str(row['precinct_abbrv']).strip() != str(row['precinct_abbrv_12']).strip() and str(row['precinct_abbrv_12']).strip() != '':
+    if str(row['precinct_abbrv']).strip() != str(row['precinct_abbrv_12']).strip() and str(row['precinct_desc_12']).strip() != '':
         return 1
     else:
         return 0
@@ -171,8 +171,8 @@ def clean_NC_12(filepath):
     data['address'] = data.apply(fix_address, axis=1, meta=('address', object))
 
     # Return relevant columns
-    new_cols = ['ncid', 'house_num', 'address', 'precinct_abbrv']
-    new_names = {'house_num': 'house_num_12', 'precinct_abbrv': 'precinct_abbrv_12'}
+    new_cols = ['ncid', 'house_num', 'address', 'precinct_abbrv', 'precinct_desc']
+    new_names = {'house_num': 'house_num_12', 'precinct_abbrv': 'precinct_abbrv_12', 'precinct_desc': 'precinct_desc_12'}
     data = data[new_cols]
     data = data.rename(columns=new_names)
     print('Cleaned 2012 NC Voter data')
@@ -245,7 +245,7 @@ def merge_NC(filepaths):
 
     # Filter out voters that are irrelevant to our analysis
     ddf = ddf.dropna(subset=['address_match', 'eligible'])
-    ddf = ddf.drop(['address_match', 'precinct_abbrv', 'precinct_abbrv_12', 'eligible'], axis=1)
+    ddf = ddf.drop(['address_match', 'precinct_abbrv', 'precinct_abbrv_12', 'precinct_desc_12', 'eligible'], axis=1)
 
     # Merge on cleaned voter histories
     vhist = clean_NC_vhist_16(filepaths['vhist16'])
