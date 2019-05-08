@@ -73,25 +73,23 @@ def find_poll_distances(geo_path, path_12, path_poll):
     final.loc[:, 'poll_lat_12'] = p_lat_12
     final.loc[:, 'poll_long_12'] = p_long_12
 
-    # Calculate the distance between 2012 and 2016 polls, voters and their 2016 polls
-    final['delta_dist'] = final.apply(lambda x: haversine(x['poll_lat_16'], 
-                                                          x['poll_long_16'], 
-                                                          x['poll_lat_12'], 
-                                                          x['poll_long_12']), axis=1)
-    final['dist_to_poll'] = final.apply(lambda x: haversine(x['poll_lat_16'], 
+    # Calculate the distance to 2012 and 2016 polls, change in distance
+    final['poll_dist_12'] = final.apply(lambda x: haversine(x['poll_lat_12'], 
+                                                          x['poll_long_12'], 
+                                                          x['latitude'], 
+                                                          x['longitude']), axis=1)
+    final['poll_dist_16'] = final.apply(lambda x: haversine(x['poll_lat_16'], 
                                                             x['poll_long_16'], 
                                                             x['latitude'], 
                                                             x['longitude']), axis=1)
+    final['delta_dist'] = final['poll_dist_16'] - final['poll_dist_12']
 
     # Force unchanged polls to be exactly 0 distance 
     final['delta_dist'] = np.where(final['poll_changed'] == 0, 0., final['delta_dist'])
 
     # If treatment voter moved 0mi from old poll, move them to control
-    final['poll_changed'] = np.where(final['delta_dist'] < 0.000001, 0, final['poll_changed'])
+    final['poll_changed'] = np.where(np.isclose(final['delta_dist'], [0.]), 0, final['poll_changed'])
     return final
-
-
-
 
 if __name__ == '__main__':
     
