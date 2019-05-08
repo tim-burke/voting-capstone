@@ -45,6 +45,7 @@ def load_and_sort(filepath):
 
 def k_nearest_dict(df, train, treatment, k=50):
     '''
+    Creates dict of {treatment voter index: List of potential neighbors' indices}
     Params:
         df: DataFrame of geocoded voter information
         train: List of indices for the treatment voters we are measuring
@@ -70,7 +71,10 @@ def k_nearest_dict(df, train, treatment, k=50):
             end = nrows
         unfiltered = set(np.arange(start, end))
         control = unfiltered - treatment_set
-        nearest_dict[i] = control
+        if not control:
+            continue
+        else:
+            nearest_dict[i] = control
     return nearest_dict 
 
 
