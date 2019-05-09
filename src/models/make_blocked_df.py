@@ -54,6 +54,12 @@ def find_blocks(df, nearest_dict, k, d):
             continue
     return blocks, block_ids
 
+def main(df, train, treatment, k, d):
+    nearest_dict = k_nearest_dict(df, train, treatment, k)
+    blocks, block_ids = find_blocks(df, nearest_dict, k, d)
+    bdf = generate_blocked_df(df, blocks, block_ids)
+    return bdf
+
 def generate_blocked_df(df, blocks, block_ids):
     '''
     Given the indices of voters for each block and associated block ID values, 
@@ -65,4 +71,34 @@ def generate_blocked_df(df, blocks, block_ids):
     bdf['block'] = block_ids
     return bdf
 
+if __name__ == '__main__':
+    filepath = click.prompt('Location of finalized data',
+                               default='../../data/processed/finalized_data.csv',
+                               show_default=True,
+                               type=click.Path(exists=True))
+    
+    test_size = click.prompt('Proportion of treatment examples to hold out',
+                     default=0.3,
+                     show_default=True,
+                     type=float)
+    k = click.prompt('Number of neighbors per voter',
+                                   default=50,
+                                   show_default=True,
+                                   type=int)
+    d = click.prompt('Radius of distance caliper around voter',
+                                   default=0.2,
+                                   show_default=True,
+                                   type=float)
 
+    # Load and sample if necessary
+    df = load_data(filepath)
+    treatment = df.index[df['poll_changed'] == 1].values
+    if test_size == 0.0:
+        train = treatment
+        test = treatment
+    else:
+        train, test = train_test_split(treatment, test_size=test_size, random_state=1337)
+
+    bdf = main(df, train, treatment, k, d)
+    bdf_name = 'df_k{0:d}_d{1:.1f}.tsv'.format(k, d)
+    bdf.to_csv('../data/processed/' + bdf_name, sep='\t')
