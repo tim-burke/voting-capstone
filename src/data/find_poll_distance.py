@@ -82,14 +82,20 @@ def find_poll_distances(geo_path, path_12, path_poll):
                                                             x['poll_long_16'], 
                                                             x['latitude'], 
                                                             x['longitude']), axis=1)
-    final['delta_dist'] = final['poll_dist_16'] - final['poll_dist_12']
-
-    # Force unchanged polls to be exactly 0 distance 
-    final['delta_dist'] = np.where(final['poll_changed'] == 0, 0., final['delta_dist'])
+    final['delta_dist'] = final['poll_dist_16'] - final['poll_dist_12']    
 
     # If treatment voter moved 0mi from old poll, move them to control
     final['poll_changed'] = np.where(np.isclose(final['delta_dist'], [0.]), 0, final['poll_changed'])
+    
+    # If control voter moved a non-0 dist, move them to treatment
+    final['poll_changed'] = np.where((final['poll_changed'] == 0) & (final['delta_dist'] != 0), 1, final['poll_changed'])
+
+    # Remove outliers over a given distance from the dataframe
+    final['outlier'] = np.where(np.abs(final['delta_dist']) > 12, np.nan, 0)
+    final = final.dropna(subset=['outlier']).drop('outlier', axis=1)
+
     return final
+
 
 if __name__ == '__main__':
     
