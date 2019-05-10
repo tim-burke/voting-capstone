@@ -3,7 +3,7 @@ import numpy as np
 import sys
 from math import radians, cos, sin, asin, sqrt
 from sklearn.model_selection import train_test_split
-from nearest_neighbors import haversine, k_nearest_dict
+from nearest_neighbors import haversine, get_slice, k_nearest_dict
 
 def load_data(filepath):
     '''Load finalized data and sort it by rounded lat/long'''
@@ -14,31 +14,6 @@ def load_data(filepath):
     df = df.reset_index(drop=True)
     return df
 
-def get_slice(arr, i, k):
-    '''Given array, idx of arr, and k, find slice of neighbors'''
-    n = a.shape[0]
-    width = int(k/2)
-    start = i - width
-    end = i + width 
-    if width > i:
-        start = 0
-        end += width - i
-    elif end > n:
-        start -= end - n
-        end = n
-    return a[start:end]
-
-def k_nearest_dict(df, train, treatment, k):
-    nearest_dict = {}
-    treatment_set = set(treatment)
-    idxs = np.array(list(set(df.index) - set(treatment_set)))
-    idxs = np.sort(idxs, axis=None) 
-    for i in train:
-        idx = (np.abs(idxs - i)).argmin() # find closest value's index
-        neighbors = get_slice(idxs, idx, k=50) # Slice around it
-        nearest_dict[i] = neighbors
-    return nearest_dict
-    
 def find_blocks(df, nearest_dict, k, d):
     '''
     Find the neighbors of each treatment voter, assigning them

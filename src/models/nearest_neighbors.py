@@ -25,7 +25,10 @@ def haversine(lat1, lon1, lat2, lon2):
 
 def load_and_sort(filepath):
     '''Loading data and dropping duplicates'''
-    df = pd.read_csv(filepath)
+    if '.tsv' in filepath:
+        df = pd.read_csv(filepath, sep='\t')
+    else:
+        df = pd.read_csv(filepath)
 
 
     # Adding column for if they voted and removing some unnecessary columns
@@ -40,42 +43,33 @@ def load_and_sort(filepath):
 
 
     # Resetting index then getting indices w/ new locations
-    df = df.reset_index()
+    df = df.reset_index(drop=True)
     return df
 
-def k_nearest_dict(df, train, treatment, k=50):
-    '''
-    Creates dict of {treatment voter index: List of potential neighbors' indices}
-    Params:
-        df: DataFrame of geocoded voter information
-        train: List of indices for the treatment voters we are measuring
-        treatment: List of indices for ALL treatment voters
-        k: Number of nearest neighbors to find
-    
-    Returns:
-        dict of 'index': set(potential neighbors' indices)
-    '''
-    
-    nrows = df.shape[0] - 1 # index of the last row
+def get_slice(arr, i, k):
+    '''Given array, idx of arr, and k, find slice of neighbors'''
+    n = arr.shape[0]
+    width = int(k/2)
+    start = i - width
+    end = i + width 
+    if width > i:
+        start = 0
+        end += width - i
+    elif end > n:
+        start -= end - n
+        end = n
+    return arr[start:end]
+
+def k_nearest_dict(df, train, treatment, k):
     nearest_dict = {}
     treatment_set = set(treatment)
-    width = int((k * 1.5) / 2) # how far on either side to check
+    idxs = np.array(list(set(df.index) - set(treatment_set)))
+    idxs = np.sort(idxs, axis=None) 
     for i in train:
-        start = i - width
-        end = i + width 
-        if width > i:
-            start = 0
-            end += width - i
-        elif end > nrows:
-            start -= end - nrows
-            end = nrows
-        unfiltered = set(np.arange(start, end))
-        control = unfiltered - treatment_set
-        if not control:
-            continue
-        else:
-            nearest_dict[i] = control
-    return nearest_dict 
+        idx = (np.abs(idxs - i)).argmin() # find closest value's index
+        neighbors = get_slice(idxs, idx, k=50) # Slice around it
+        nearest_dict[i] = neighbors
+    return nearest_dict
 
 
 def find_neighbors(df, nearest_dict, k):
@@ -113,13 +107,13 @@ def calc_y0(votes, dists, d):
     result = m.mean(axis=1)
     return result
 
-def make_final_data(df, train, treatment, k, d):
+def make_final_data(df, train, nearest_dict, k, d):
     '''
     Return a DataFrame with the treatment group
     '''
-    nearest_dict = k_nearest_dict(df, train, treatment, k)
+    
     votes, dists = find_neighbors(df, nearest_dict, k)
-    final_df = df.iloc[train]['ncid'].reset_index()
+    final_df = df.iloc[train][['ncid', 'poll_changed']].reset_index(drop=True)
 
     # Get the final results
     control = calc_y0(votes, dists, d)
@@ -133,7 +127,7 @@ def make_final_data(df, train, treatment, k, d):
 
 if __name__ == '__main__':
     filepath = click.prompt('Filepath to geocoded data',
-                                   default='../../data/interim/full_df.csv',
+                                   default='../../data/processed/finalized_data.tsv',
                                    show_default=True,
                                    type=click.Path(exists=True))
     k = click.prompt('Number of neighbors per voter',
@@ -141,7 +135,7 @@ if __name__ == '__main__':
                                    show_default=True,
                                    type=int)
     d = click.prompt('Neighborhood size?',
-                     default=1.0,
+                     default=0.2,
                      show_default=True,
                      type=float)
 
@@ -152,6 +146,7 @@ if __name__ == '__main__':
     train = treatment 
 
     # Find neighbors and calculate ATE
-    final_df = make_final_data(df, train, treatment, k, d)
+    nearest_dict = k_nearest_dict(df, train, treatment, k)
+    final_df = make_final_data(df, train, nearest_dict, k, d)
     print('ATE of this sample calculated as {}'.format(final_df['ate'].mean()))
     final_df.to_csv('../../data/processed/NC_final.tsv', sep='\t')

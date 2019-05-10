@@ -29,8 +29,10 @@ if __name__ == '__main__':
     std_errors = []
     row_counts = []
     dists = []
+    
+    nearest_dict = k_nearest_dict(df, train, treatment, k)
     for d in distances:
-        final_df = make_final_data(df, train, treatment, k, d)
+        final_df = make_final_data(df, train, nearest_dict, k, d)
         if final_df is None: # skip if no neighbors found at that distance
             continue
         else:
