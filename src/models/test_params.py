@@ -7,7 +7,7 @@ from nearest_neighbors import *
 if __name__ == '__main__':
 
     filepath = click.prompt('Filepath to geocoded data',
-                                   default='../../data/processed/full_df.csv',
+                                   default='../../data/processed/finalized_data.tsv',
                                    show_default=True,
                                    type=click.Path(exists=True))
     k = click.prompt('Number of neighbors per voter',
@@ -42,5 +42,5 @@ if __name__ == '__main__':
             SE = np.std(final_df['ate']) / np.sqrt(final_df.shape[0])
             std_errors.append(SE)
     results = pd.DataFrame({'ate': avg_effects, 'se': std_errors, 'n_rows': row_counts, 'distance': dists})
-    results.to_csv('../../data/processed/param_test_k{}.csv'.format(k), index=False)
+    results.to_csv('../../data/results/param_test_k{}.csv'.format(k), index=False)
     print('Wrote outcomes to param_test_k{}.csv'.format(k))

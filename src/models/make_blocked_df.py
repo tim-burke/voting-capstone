@@ -1,9 +1,11 @@
 import pandas as pd
 import numpy as np
 import sys
+import click
 from math import radians, cos, sin, asin, sqrt
 from sklearn.model_selection import train_test_split
 from nearest_neighbors import haversine, get_slice, k_nearest_dict
+
 
 def load_data(filepath):
     '''Load finalized data and sort it by rounded lat/long'''
@@ -73,7 +75,7 @@ def generate_blocked_df(df, blocks, block_ids):
 
 if __name__ == '__main__':
     filepath = click.prompt('Location of finalized data',
-                               default='../../data/processed/finalized_data.csv',
+                               default='../../data/processed/finalized_data.tsv',
                                show_default=True,
                                type=click.Path(exists=True))
     
@@ -101,4 +103,5 @@ if __name__ == '__main__':
 
     bdf = main(df, train, treatment, k, d)
     bdf_name = 'df_k{0:d}_d{1:.1f}.tsv'.format(k, d)
-    bdf.to_csv('../data/processed/' + bdf_name, sep='\t')
+    bdf.to_csv('../../data/results/' + bdf_name, sep='\t', index=False)
+    print('wrote data to {}'.format('../../data/results/' + bdf_name))
