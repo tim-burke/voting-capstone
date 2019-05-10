@@ -67,7 +67,7 @@ def generate_blocked_df(df, blocks, block_ids):
     Given the indices of voters for each block and associated block ID values, 
     return a blocked dataframe formatted for statsmodels
     '''
-    cols = ['ncid', 'poll_changed', 'voted', 'delta_dist']
+    cols = ['ncid', 'poll_changed', 'voted', 'delta_dist', 'voting_method']
     df = df[cols]
     bdf = df.iloc[blocks, :].copy(deep=True)
     bdf['block'] = block_ids
