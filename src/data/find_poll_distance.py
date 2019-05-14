@@ -2,9 +2,13 @@ import pandas as pd
 import numpy as np
 from math import radians, cos, sin, asin, sqrt
 import dask.dataframe as dd
-from nearest_neighbors import haversine
 from csv import QUOTE_NONE
 import click
+
+import sys
+sys.path.append('../models/')
+from nearest_neighbors import haversine
+
 
 def filter_by_membership(ncid, s):
     """Takes NCID and a set of NCIDs, returns 1 if NCID in set"""
@@ -60,9 +64,9 @@ def find_poll_distances(geo_path, path_12, path_poll):
     merge_NC_2012.loc[(merge_NC_2012['ncid'].isin(['CW207902', 'CW664395'])) & (merge_NC_2012['county_desc'] == 'MECKLENBURG'), 'ncid'] = np.nan
     merge_NC_2012 = merge_NC_2012.dropna(subset=['ncid'])
     merge_NC_2012 = merge_NC_2012.drop_duplicates(subset=['ncid'], keep='first')
-    201_case = polling_coords_2012[(polling_coords_2012['precinct_name'].str.contains('201')) & (polling_coords_2012['county_name'] == 'MECKLENBURG')]
-    201_vals = 201_case[['poll_lat_12', 'poll_long_12']].values
-    merge_NC_2012.loc[merge_NC_2012['poll_lat_12'].isna(), ['poll_lat_12', 'poll_long_12']] = 201_vals
+    case_201 = polling_coords_2012[(polling_coords_2012['precinct_name'].str.contains('201')) & (polling_coords_2012['county_name'] == 'MECKLENBURG')]
+    vals_201 = case_201[['poll_lat_12', 'poll_long_12']].values
+    merge_NC_2012.loc[merge_NC_2012['poll_lat_12'].isna(), ['poll_lat_12', 'poll_long_12']] = vals_201
 
     # Merge 2012 coords onto 2016 data
     final = nc16.merge(merge_NC_2012[['ncid', 'poll_lat_12', 'poll_long_12']], on='ncid', how='left')
