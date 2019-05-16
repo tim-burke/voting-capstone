@@ -1,0 +1,267 @@
+---
+title: "R Notebook"
+output: pdf_document
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+```{r}
+library(lfe)
+library(xtable)
+library(tinytex)
+library(knitr)
+library(data.table)
+library(stargazer)
+library(gmodels)
+library(MASS)
+library(multiwayvcov)
+```
+
+
+```{r}
+knitr::opts_chunk$set(fig.align="center", tidy=FALSE)
+```
+
+
+```{r}
+setwd("~/Desktop/R_capstone/data")
+pointthree_df <- read.csv('twenty_twelve_point_three.csv')
+pointthree_df$block <- as.factor(pointthree_df$block)
+```
+
+
+
+Hail mary
+```{r}
+setwd("~/Desktop/R_capstone/data")
+hailmary <- read.csv('hailmary_point_three.csv')
+hailmary$block <- as.factor(hailmary$block)
+```
+
+Just poll changed
+```{r}
+mod <- felm(voted ~ poll_changed + G(block), data=hailmary)
+summary(mod)
+```
+
+
+
+```{r}
+mod <- felm(voted ~ is_farther + is_closer + G(block), data=hailmary)
+summary(mod)
+```
+
+
+Donut on Hail Mary 
+```{r}
+setwd("~/Desktop/R_capstone/data")
+hailmary_donut <- read.csv('hailmary_donut.csv')
+hailmary_donut$block <- as.factor(hailmary_donut$block)
+```
+
+
+
+Poll changed for donus
+```{r}
+mod <- felm(voted ~ poll_changed + G(block), data=hailmary_donut)
+summary(mod)
+```
+
+
+```{r}
+mod <- felm(voted ~ is_closer + is_farther + G(block), data=hailmary_donut)
+summary(mod)
+```
+
+
+
+
+
+```{r}
+mod <- felm(voted_2012 ~ poll_changed + G(block), data=hailmary)
+summary(mod)
+```
+
+
+```{r}
+mod <- felm(voted_2012 ~ is_closer + is_farther + G(block), data=hailmary)
+summary(mod)
+```
+
+
+
+
+
+
+
+
+---FULL DATAFRAME---
+
+Just poll_changed
+```{r}
+mod <- felm(voted ~ poll_changed + G(block), data=pointthree_df)
+```
+
+
+
+```{r, results='asis'}
+stargazer(mod,
+  title = "Turnout by change in distance to poll", label = "Poll Changed",
+  dep.var.labels=c("Voted"),
+  covariate.labels=c("Polling location changed"),
+omit.stat=c("f", "ser", "rsq"),
+add.lines = list(c("Fixed effects by block?", "Yes")),
+  header= FALSE)
+```
+
+
+
+
+Is farther and is closer
+```{r}
+mod <- felm(voted ~ is_closer + is_farther + G(block), data=pointthree_df)
+```
+
+
+
+
+
+```{r, results='asis'}
+stargazer(mod,
+  title = "Turnout by change in distance to poll", label = "Poll Changed",
+  dep.var.labels=c("Voted"),
+  covariate.labels=c("Closer polling location", "Farther polling location"),
+omit.stat=c("f", "ser", "rsq"),
+add.lines = list(c("Fixed effects by block?", "Yes")),
+  header= FALSE)
+```
+
+
+
+
+
+---DONUT DATA---
+```{r}
+setwd("~/Desktop/R_capstone/data")
+donut_df <- read.csv("donut_df.csv")
+```
+
+
+
+Is farther and is closer
+```{r}
+mod <- felm(voted ~ is_closer + is_farther  + G(block), data=donut_df)
+```
+
+
+```{r}
+mod <- felm(voted ~ poll_changed  + G(block), data=donut_df)
+summary(mod)
+```
+
+
+
+
+```{r, results='asis'}
+stargazer(mod,
+  title = "Turnout by change in distance to poll (over 1 mile)", label = "Poll Changed",
+  dep.var.labels=c("Voted"),
+  covariate.labels=c("Closer polling location","Farther polling location"),
+omit.stat=c("f", "ser", "rsq"),
+add.lines = list(c("Fixed effects by block?", "Yes")),
+  header= FALSE)
+```
+
+
+
+Absentee
+```{r}
+mod <- felm(is_absentee ~ is_closer + is_farther + G(block), data=pointthree_df)
+```
+
+
+
+```{r, results='asis'}
+stargazer(mod,
+  title = "Absentee voting by change in distance to poll", label = "Poll Changed",
+  dep.var.labels=c("Voted"),
+  covariate.labels=c("Closer polling location","Farther polling location"),
+omit.stat=c("f", "ser", "rsq"),
+add.lines = list(c("Fixed effects by block?", "Yes")),
+  header= FALSE)
+```
+
+
+
+
+
+
+In-person
+```{r}
+mod <- felm(in_person_vote ~ is_closer + is_farther + G(block), data=pointthree_df)
+```
+
+
+
+```{r, results='asis'}
+stargazer(mod,
+  title = "In-person voting by change in distance to poll", label = "Poll Changed",
+  dep.var.labels=c("Voted"),
+  covariate.labels=c("Closer polling location","Farther polling location"),
+omit.stat=c("f", "ser", "rsq"),
+add.lines = list(c("Fixed effects by block?", "Yes")),
+  header= FALSE)
+```
+
+
+
+
+
+Fixed effects approach - 0.1 miles
+```{r}
+setwd("~/Desktop/R_capstone/data")
+pointone_df <- read.csv('twenty_twelve_point_one.csv')
+pointone_df$block <- as.factor(pointone_df$block)
+```
+
+
+```{r}
+mod <- felm(voted_2012 ~ poll_changed + G(block), data=pointone_df)
+summary(mod)
+```
+
+
+```{r, results='asis'}
+stargazer(mod,
+  title = "2012 turnout by post-2012 poll change", label = "Poll Changed",
+  dep.var.labels=c("Voted"),
+  covariate.labels=c("Polling location changed"),
+omit.stat=c("f", "ser", "rsq"),
+add.lines = list(c("Fixed effects by block?", "Yes")),
+  header= FALSE)
+```
+
+
+
+
+
+```{r}
+mod <- felm(voted_2012 ~ is_farther + is_closer + G(block), data=pointone_df)
+```
+
+
+
+
+```{r, results='asis'}
+stargazer(mod,
+  title = "2012 turnout by post-2012 poll change", label = "Poll Changed",
+  dep.var.labels=c("Voted"),
+  covariate.labels=c("Closer polling location","Farther polling location"),
+omit.stat=c("f", "ser", "rsq"),
+add.lines = list(c("Fixed effects by block?", "Yes")),
+  header= FALSE)
+```
+
+
