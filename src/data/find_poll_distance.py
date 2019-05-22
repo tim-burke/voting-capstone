@@ -31,13 +31,13 @@ def find_poll_distances(geo_path, path_12, path_poll):
                                                       'address': 'poll_address'}, axis=1)
 
     # Load in Geocoded data 2016 data, merge on poll coordinates
-    nc16 = pd.read_csv('../data/processed/fixed_full_df.csv', dtype={'ncid': object})
+    nc16 = pd.read_csv('../../data/processed/fixed_geocoded_data.csv', dtype={'ncid': object})
     polling_coords_2016 = polling_coords_2016[['poll_address', 'poll_lat_16', 'poll_long_16']].drop_duplicates(subset='poll_address')
     nc16 = nc16.merge(polling_coords_2016, how='inner', on='poll_address')
 
     # Load in 2012 data into Dask, merge on coordinates
     cols_2012 = ['ncid','county_desc','precinct_abbrv','precinct_desc', 'voter_status_desc']
-    df_voter2012 = dd.read_csv('../data/raw/VR_Snapshot_20121106.txt', 
+    df_voter2012 = dd.read_csv('../../data/raw/VR_Snapshot_20121106.txt', 
                    sep='\t',
                    encoding='UTF-16',
                    blocksize=150000000,
@@ -86,7 +86,7 @@ def find_poll_distances(geo_path, path_12, path_poll):
                                                             x['poll_long_16'], 
                                                             x['latitude'], 
                                                             x['longitude']), axis=1)
-    final['delta_dist'] = final['poll_dist_16'] - final['poll_dist_12']    
+    final['delta_dist'] = final['poll_dist_16'] - final['poll_dist_12']
 
     # If treatment voter moved 0mi from old poll, move them to control
     final['poll_changed'] = np.where(np.isclose(final['delta_dist'], [0.]), 0, final['poll_changed'])
@@ -97,6 +97,12 @@ def find_poll_distances(geo_path, path_12, path_poll):
     # Remove outliers over a given distance from the dataframe
     final['outlier'] = np.where(np.abs(final['delta_dist']) > 12, np.nan, 0)
     final = final.dropna(subset=['outlier']).drop('outlier', axis=1)
+
+    # Some NCIDs were duplicated in Vhist and must be removed. Drop them from analysis here
+    bad_ids = {'AA16823', 'AP84737', 'AS70397', 'BC18809', 'BL94079', 'BN231249', 'BP40371', 'BR88170', 'BY234152', 'CJ13080', 'CW118391',
+                'CW307223', 'DB203486', 'DK34237', 'DR118666', 'DR25033', 'DR98306', 'DT20561', 'EF164225', 'EF29979', 'EF81468', 'EF8430',
+                'EH915968', 'ER15626'}
+    final = final[~final['ncid'].isin(bad_ids)]
 
     return final
 
